@@ -1,9 +1,13 @@
+//package main
 package main
 
 import (
 	"fmt"
 	"net/http"
 
+	"log"
+
+	"github.com/julienschmidt/httprouter"
 	"github.com/jusongchen/goLearning/goWeb/views"
 )
 
@@ -16,21 +20,36 @@ func main() {
 	contact = views.NewView("bootstrap", "views/contacts.gohtml")
 	msg = views.NewView("bootstrap", "views/message.gohtml")
 
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/contact", contactHandler)
-	http.HandleFunc("/message", msgHandler)
-	http.ListenAndServe(":3000", nil)
+	router := httprouter.New()
+	router.GET("/", indexHandler)
+	router.GET("/contact", contactHandler)
+	router.GET("/message", msgHandler)
+	router.POST("/message", msgHandler)
+
+	log.Fatal(http.ListenAndServe(":3000", router))
+
+	// http.HandleFunc("/", indexHandler)
+	// http.HandleFunc("/contact", contactHandler)
+	// http.HandleFunc("/message", msgHandler)
+	// http.ListenAndServe(":3000", nil)
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+func indexHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	index.Render(w, nil)
 }
 
-func contactHandler(w http.ResponseWriter, r *http.Request) {
+func contactHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	contact.Render(w, nil)
 }
 
-func msgHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("msgHandler")
-	msg.Render(w, nil)
+func msgHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	switch r.Method {
+	case "GET":
+		msg.Render(w, nil)
+	case "POST":
+		msg := fmt.Sprintf("Post called:%s message: %s", r.FormValue("email"), r.FormValue("message"))
+		fmt.Printf(msg)
+
+		fmt.Fprintf(w, "Get form values: %v", r.Form)
+	}
 }
