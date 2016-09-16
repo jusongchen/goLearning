@@ -1,0 +1,39 @@
+
+
+<h2>Search Books</h2>
+
+
+<form action="/demo/books/search" method="GET">
+  <div class="form-group">
+    <input type="text" class="form-control" name="pattern"/>
+  </div>
+
+  <input type="submit" value="Search" class="btn btn-primary" />
+</form>
+
+<br/>
+<form action="/demo/books/create" method="GET">
+  <input type="submit" class="btn btn-primary" value="Create a New Book"/>
+</form>
+
+{{if .}}
+	<br/>
+	<div>
+	<table class="table">
+	  <tr>
+		<th>Title</th>
+		<th>Author</th>
+		<th>Description</th>
+	  </tr>
+	{{ range . }}
+	  <tr>
+		<td>{{.Title}}</td>
+		<td>{{.Author}}</td>
+		<td>{{.Description}}</td>
+	  </tr>
+	{{ end }}
+	</table>
+	</div>
+{{ else }}
+Not Found!
+{{ end }}

@@ -1,0 +1,11 @@
+<html>
+  <head>
+	<link rel="stylesheet" href="/css/bootstrap.min.css"> 
+	
+  </head>
+  <body>
+    <div class="container">
+      {{ yield }}
+    </div>
+  </body>
+</html>
