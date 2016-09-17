@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"log"
 
@@ -26,12 +27,18 @@ func main() {
 	router.GET("/message", msgHandler)
 	router.POST("/message", msgHandler)
 
+	router.GET("/dashboard", dashboardHandler)
+
 	log.Fatal(http.ListenAndServe(":3000", router))
 
 	// http.HandleFunc("/", indexHandler)
 	// http.HandleFunc("/contact", contactHandler)
 	// http.HandleFunc("/message", msgHandler)
 	// http.ListenAndServe(":3000", nil)
+}
+
+func dashboardHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Fprintf(w, "<p>time %v</p>", time.Now())
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

@@ -13,6 +13,20 @@
         </div>
         <input type="submit" class="btn btn-primary" />
     </form>
-</div>  
+</div>
+
+<div id ="dashboard" class="well">
+    <p> How are you doing?</p>
+</div>
+
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<script>
+    $(document).ready(function(){
+        setInterval(function() {
+            $("#dashboard").load("/dashboard").fadein("slow");
+        }, 1000);
+    });
+</script>
+  
 {{end}}
 
