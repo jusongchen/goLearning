@@ -31,10 +31,6 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(":3000", router))
 
-	// http.HandleFunc("/", indexHandler)
-	// http.HandleFunc("/contact", contactHandler)
-	// http.HandleFunc("/message", msgHandler)
-	// http.ListenAndServe(":3000", nil)
 }
 
 func dashboardHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
