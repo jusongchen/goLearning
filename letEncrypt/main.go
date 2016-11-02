@@ -5,11 +5,11 @@ import "github.com/kataras/iris"
 
 func main() {
 	iris.Get("/", func(ctx *iris.Context) {
-		ctx.Write("Hello from SECURE SERVER!")
+		ctx.Write("Hello JSUONG! from SECURE SERVER!")
 	})
 
 	iris.Get("/test2", func(ctx *iris.Context) {
-		ctx.Write("Welcome to secure server from /test2!")
+		ctx.Write("Jusong - Welcome to secure server from /test2!")
 	})
 
 	// This will provide you automatic certification & key from letsencrypt.org's servers
