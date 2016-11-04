@@ -53,6 +53,7 @@ func msgHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		msg := fmt.Sprintf("Post called:%s message: %s", r.FormValue("email"), r.FormValue("message"))
 		fmt.Printf(msg)
 
+		fmt.Fprintf(w, "Get Headerorm values: %v\n", r.Header)
 		fmt.Fprintf(w, "Get form values: %v", r.Form)
 	}
 }
