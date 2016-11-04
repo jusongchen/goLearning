@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	alohaURL          = "https://aloha.my.salesforce.com"
-	sfdcAlohaLoginURL = "https://aloha.force.com/alohav3__SAML_LOGIN"
-	alohaDotForceURL  = "https://aloha.force.com"
+	alohaHomeURL            = "https://aloha.my.salesforce.com"
+	alohaDotForceURL        = "https://aloha.force.com"
+	pathAlohav3__SAML_LOGIN = "/alohav3__SAML_LOGIN"
+	pathLogin               = "/login"
+	pathVerifyLogin         = "/verify_login"
+	sfdcAlohaLoginURL       = alohaDotForceURL + pathAlohav3__SAML_LOGIN
 )
 
 func main() {
@@ -67,11 +70,11 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 	irisFW.UseTemplate(html.New(html.Config{Layout: "layouts/layout.html"})).Directory("./templates", ".html")
 
 	//svr.Config.Render.Template.Gzip = true
-	irisFW.Post("/message", func(ctx *iris.Context) {
+	// irisFW.Post("/message", func(ctx *iris.Context) {
 
-		log.Printf("Header: %v\n", ctx.Response.Header)
-		// r.FormValue("userid"), r.FormValue("message")
-	})
+	// 	log.Printf("Header: %v\n", ctx.Response.Header)
+	// 	// r.FormValue("userid"), r.FormValue("message")
+	// })
 
 	//svr.Config.Render.Template.Gzip = true
 	irisFW.Get("/", func(ctx *iris.Context) {
@@ -80,32 +83,33 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 	})
 
 	//svr.Config.Render.Template.Gzip = true
-	irisFW.Get("/login", func(ctx *iris.Context) {
+	irisFW.Get(pathLogin, func(ctx *iris.Context) {
 
 		// ctx.MustRender("login.html", nil)
 
 		// return
 
-		res, err := Get(alohaURL)
+		bodyBytes, err := Get(alohaHomeURL)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer res.Body.Close()
+		defer bodyBytes.Body.Close()
 
-		// io.Copy(os.Stdout, res.Body)
-		resp, err := ioutil.ReadAll(res.Body)
+		// io.Copy(os.Stdout, bodyBytes.Body)
+		resp, err := ioutil.ReadAll(bodyBytes.Body)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 		// http.PostForm(sfdcAlohaLoginURL,)
-		s := strings.Replace(string(resp), sfdcAlohaLoginURL, "http://localhost:3000/alohav3__SAML_LOGIN", -1)
+		s := strings.Replace(string(resp), sfdcAlohaLoginURL, pathLogin, -1)
+
 		// s := string(resp)
 		log.Println(s)
 		ctx.HTML(iris.StatusOK, string(s))
 	})
 
-	irisFW.Post("/alohav3__SAML_LOGIN", func(ctx *iris.Context) {
+	irisFW.Post(pathLogin, func(ctx *iris.Context) {
 
 		data := ctx.PostValuesAll()
 		// data :=url.Values{}
@@ -116,13 +120,36 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 		}
 
 		defer resp.Body.Close()
-		// io.Copy(os.Stdout, res.Body)
-		res, err := ioutil.ReadAll(resp.Body)
+		// io.Copy(os.Stdout, bodyBytes.Body)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
 
-		strings.Replace(string(res), alohaDotForceURL, "", -1)
+		s := strings.Replace(string(bodyBytes), sfdcAlohaLoginURL, pathVerifyLogin, -1)
+		// s := string(resp)
+		// log.Println(s)
+		ctx.HTML(iris.StatusOK, string(s))
 
-		// ctx.Text(iris.StatusOK, fmt.Sprintf("%v", string(res)))
-		ctx.HTML(iris.StatusOK, string(res))
+	})
+
+	irisFW.Post(pathVerifyLogin, func(ctx *iris.Context) {
+
+		data := ctx.PostValuesAll()
+		// data :=url.Values{}
+		// data[]
+
+		log.Printf("PostForm data %v", data)
+		resp, err := http.PostForm(sfdcAlohaLoginURL, data)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer resp.Body.Close()
+		// io.Copy(os.Stdout, bodyBytes.Body)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+
+		s := string(bodyBytes)
+		log.Println(s)
+		ctx.HTML(iris.StatusOK, string(s))
+
 	})
 
 }
