@@ -1,92 +1,100 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	"strconv"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
 
-	"github.com/jusongchen/goLearning/iris/users"
+	"github.com/kataras/go-template/html"
 	"github.com/kataras/iris"
+	"salesforce.com/dsp/irisx"
 )
 
-// main.go
-
 func main() {
-	dbinfo := fmt.Sprintf("port=32768 user=%s password=%s dbname=%s sslmode=disable", "postgres", "pass123", "postgres")
-	db, err := sql.Open("postgres", dbinfo)
-	if err != nil {
-		fmt.Printf("err: %+v ", err)
-	}
-	defer db.Close()
 
-	iris.Get("/people", GetAll(db))
-	iris.Get("/people/:id", Get(db))
-	iris.Post("/people/:id", Post(db))
-	iris.Delete("/people/:id", Delete(db))
+	irisx.DefaultConfig.IsDevelopment = true
+	fw := irisx.NewFramework(&irisx.DefaultConfig)
+	registerHandles(fw)
+	err := irisx.ListenAndServe(":3000", fw)
+	log.Fatal(err)
 
-	iris.Listen(":8000")
 }
 
-func GetAll(db *sql.DB) iris.HandlerFunc {
-	return func(ctx *iris.Context) {
-		p, err := users.GetAll(db)
+func registerHandles(irisFW *iris.Framework) {
+
+	// , db *sqlx.DB
+
+	// directory and extensions defaults to ./templates, .html for all template engines
+	irisFW.UseTemplate(html.New(html.Config{Layout: "layouts/layout.html"})).Directory("./templates", ".html")
+
+	//svr.Config.Render.Template.Gzip = true
+	irisFW.Get("/", func(ctx *iris.Context) {
+
+		ctx.MustRender("index.html", nil)
+	})
+
+	const (
+		pathLogin = "/login"
+	)
+
+	//svr.Config.Render.Template.Gzip = true
+	irisFW.Get(pathLogin, func(ctx *iris.Context) {
+
+		// ctx.MustRender("login.html", nil)
+
+		// return
+
+		bodyBytes, err := Get(alohaHomeURL)
 		if err != nil {
-			fmt.Printf("%v", err)
-			ctx.Error("Failed to load people list", 503)
+			log.Fatal(err)
+		}
+		defer bodyBytes.Body.Close()
+
+		// io.Copy(os.Stdout, bodyBytes.Body)
+		resp, err := ioutil.ReadAll(bodyBytes.Body)
+
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		ctx.JSON(200, p)
-	}
-}
+		// http.PostForm(sfdcAlohaLoginURL,)
+		// s := string(resp)
+		s := strings.Replace(string(resp), actionURL, pathLogin, -1)
 
-func Get(db *sql.DB) iris.HandlerFunc {
-	return func(ctx *iris.Context) {
-		ID, err := strconv.Atoi(ctx.Param("id"))
+		// s := string(resp)
+		// log.Println(s)
+		// ctx.Text(iris.StatusOK, string(s))
+		ctx.HTML(iris.StatusOK, string(s))
+	})
+
+	irisFW.Post(pathLogin, func(ctx *iris.Context) {
+
+		data := ctx.PostValuesAll()
+		// data :=url.Values{}
+		// data[]
+		resp, err := http.PostForm(actionURL, data)
 		if err != nil {
-			handleError(ctx, "Failed to load people list", err)
+			log.Fatal(err)
 		}
 
-		p, err := users.Get(db, ID)
-		if err != nil {
-			handleError(ctx, "Failed to load people list", err)
+		defer resp.Body.Close()
+		// io.Copy(os.Stdout, bodyBytes.Body)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+
+		s := strings.Replace(string(bodyBytes), actionURL, pathLogin, -1)
+
+		// s := string(bodyBytes)
+		log.Println(s)
+
+		if strings.Contains(s, "https://org62.my.salesforce.com/home/home.jsp") {
+			log.Printf("\n********password verified\n")
+		} else {
+			log.Printf("\n********password NOT verified\n")
 		}
 
-		ctx.JSON(200, p)
-	}
-}
+		ctx.HTML(iris.StatusOK, string(s))
 
-func Post(db *sql.DB) iris.HandlerFunc {
-	return func(ctx *iris.Context) {
-		name := ctx.Param("name")
-		hobby := ctx.Param("hobby")
+	})
 
-		err := users.Post(db, name, hobby)
-		if err != nil {
-			handleError(ctx, "Failed to save person", err)
-			return
-		}
-
-		ctx.Write("ok")
-	}
-}
-
-func Delete(db *sql.DB) iris.HandlerFunc {
-	return func(ctx *iris.Context) {
-		ID, err := strconv.Atoi(ctx.Param("id"))
-		if err != nil {
-			handleError(ctx, "Failed to load people list", err)
-		}
-
-		err = users.Delete(db, ID)
-		if err != nil {
-			handleError(ctx, "Failed to load people list", err)
-		}
-
-		ctx.Write("ok")
-	}
-}
-
-func handleError(ctx *iris.Context, message string, err error) {
-	fmt.Printf("%v", err)
-	ctx.Error(message, 503)
 }
