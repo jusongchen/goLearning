@@ -1,0 +1,122 @@
+<html><head>
+            <meta charset="utf-8">
+            <meta content="#" name="keywords">
+            <meta content="#" name="description">
+            <meta content="height=device-height width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+            <title>Salesforce Employee Login</title>
+                        <script type="text/javascript">
+            var show_Overlay;
+            function showOverlay() {
+                if(show_Overlay) {
+                    document.getElementById("overlay").style.display = "initial";
+                    setTimeout(notify,2500);
+                }
+            }            
+            function readOnlyModeAlert() {
+                if (document.getElementById("LoginPage:form1readOnlyModeAlert")) {
+                    document.getElementById("readOnlyModeAlert").style.display = "initial";                    
+                    doReadOnlyAF();
+                }
+                setFocus();            
+            }            
+            function setFocus() {
+                document.getElementById("overlay").style.display = "none";                
+                var element = document.getElementById("LoginPage:form1:token");
+                if (element) {
+                    if (element.value == null || element.value == "") {
+                        element.focus();
+                    }
+                }
+                element = document.getElementById("LoginPage:form1:password");
+                if (element) {
+                    if (element.value == null || element.value == "") {
+                        element.focus();
+                    }
+                }
+                element = document.getElementById("LoginPage:form1:username");
+                if (element) {
+                    if (element.value == null || element.value == "") {
+                        element.focus();
+                    }
+                } 
+            }
+            function Lock() {
+                document.getElementById("LoginPage:form1:username").disabled = true;
+                document.getElementById("LoginPage:form1:password").disabled = true;
+                document.getElementById("LoginPage:form1:LoginBTN").disabled = true;
+                document.getElementById("LoginPage:form1:LoginBTN").value="Logging In...";
+                var element = document.getElementById("LoginPage:form1:token");
+                if (element) {
+                    element.disabled = true;
+                    var value = element.value;
+                    if (value == null || value == "") {
+                        show_Overlay = true;
+                        setTimeout(showOverlay,2500);
+                    }
+                } else {
+                    show_Overlay = true;
+                    setTimeout(showOverlay,2500);
+                }
+            }
+            function unLock() {
+                show_Overlay = false;
+                document.getElementById("LoginPage:form1:username").disabled = false;
+                document.getElementById("LoginPage:form1:password").disabled = false;
+                document.getElementById("LoginPage:form1:LoginBTN").disabled = false;
+                document.getElementById("LoginPage:form1:LoginBTN").value="Log In";
+                if (document.getElementById("LoginPage:form1:token")) {
+                    document.getElementById("LoginPage:form1:token").disabled = false;
+                }
+                setFocus();
+            }           
+            function doLogin(ev) {
+                if (window.event && window.event.keyCode == 13 || ev.which == 13) {
+                    /* Lock controlls to prevent 'extra clicks'*/
+                    Lock();                        
+                    doLoginAF();
+                    return false;
+                } else {
+                    return true;
+                }
+            } 
+            function postBinding() {
+                if (document.forms["SAMLPOST"] != undefined) {
+                    document.forms["SAMLPOST"].submit();
+                } else {
+                    var Counter_Element = document.getElementById("COUNTER");
+                    if (Counter_Element != null) {
+                        var TimeOut = Counter_Element.innerHTML;
+                        setTimeout(function() { doAuthStatusAF(); }, TimeOut);
+                    } else {
+                        unLock();
+                    }
+                }
+            }
+            function notify() {
+                var iphone = document.getElementById("iphone");
+                if (iphone.className == 'notify') {
+                    iphone.className = "";
+                } else {
+                    iphone.className = 'notify';
+                }
+                setTimeout(notify,1000);
+            }       
+            
+           
+            /* refresh page after SAML assertion expires */
+            setTimeout(function () {
+                document.getElementById("overlay_AuthRequestExpired").style.display = "initial";
+            }, 300000);
+            </script>
+
+        </head>
+        <body onload="readOnlyModeAlert()">
+            <div id="loginForm">
+                <img src="/img/logo198.png">
+                <h1>Employee Login</h1>                
+                
+<form xmlns="http://www.w3.org/1999/xhtml" id="LoginPage:form1" name="LoginPage:form1" method="post" action="/login" enctype="application/x-www-form-urlencoded"><input type="hidden" name="LoginPage:form1" value="LoginPage:form1"> 
+<label for="username">Username</label><input id="LoginPage:form1:username" type="text" name="LoginPage:form1:username" value="jusong.chen" onkeypress="return doLogin(event);" autocorrect="off" autocapitalize="none"> 
+<label for="password">Password</label><input id="LoginPage:form1:password" type="password" name="LoginPage:form1:password" value="Ahlao379565!" onkeypress="return doLogin(event);"> 
+<label for="token">Verification Code</label><input xmlns="http://www.w3.org/1999/xhtml" id="LoginPage:form1:token" type="password" name="LoginPage:form1:token" value="" onkeypress="return doLogin(event);">
+</form>
