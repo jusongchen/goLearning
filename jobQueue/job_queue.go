@@ -3,11 +3,8 @@ package main
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 )
-
-var flag uint64
 
 func worker(ctx context.Context, wg *sync.WaitGroup, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
 	defer wg.Done()
@@ -31,9 +28,9 @@ func worker(ctx context.Context, wg *sync.WaitGroup, jobChan <-chan Request, res
 			//flag is set before a cancel signal is sent out.
 			//when a Cancel signal is send out, neither jobChan nor ctx.Done() will be blocked.
 			//if the flag is set, we drop the rest and get out of here!
-			if atomic.LoadUint64(&flag) == 1 {
-				return
-			}
+			// if atomic.LoadUint64(&flagQuit) == 1 {
+			// 	return
+			// }
 		}
 	}
 }
@@ -56,6 +53,8 @@ func WaitTimeout(ctx context.Context, graceTime time.Duration, wg *sync.WaitGrou
 	}
 }
 
+//doJobs process jobs concurrently
+//close resChan and errChan when return
 func doJobs(ctx context.Context, workerCount int, rampDownPeriod time.Duration, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
 
 	// use a WaitGroup
@@ -68,10 +67,12 @@ func doJobs(ctx context.Context, workerCount int, rampDownPeriod time.Duration, 
 
 	//wait at most 1 more second after done signal
 	WaitTimeout(ctx, rampDownPeriod, &wg)
-
+	close(resChan)
+	close(errChan)
 }
 
 func processJobs(ctx context.Context, workerCount int, rampDownPeriod time.Duration, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) (aborted int64) {
+	// var flagQuit uint64
 
 	c, cancel := context.WithCancel(context.Background())
 	go doJobs(c, workerCount, rampDownPeriod, jobChan, resChan, errChan)
@@ -80,7 +81,7 @@ func processJobs(ctx context.Context, workerCount int, rampDownPeriod time.Durat
 	<-ctx.Done()
 
 	// set the cancel flag first, before cancelling
-	atomic.StoreUint64(&flag, 1)
+	// atomic.StoreUint64(&flagQuit, 1)
 
 	aborted = int64(0)
 	//now start drain jobChan
@@ -88,21 +89,24 @@ func processJobs(ctx context.Context, workerCount int, rampDownPeriod time.Durat
 		aborted++
 	}
 
-	cancel()
+	cancel() //send done() signal to all workers
 	return aborted
 
 }
 
-func loadJobs(ctx context.Context, duration time.Duration, rampDownPeriod time.Duration, numJobs int64, jobChan chan<- Request) {
+//loadJobs send jobs to queue
+//return when ctx.Done() and close jobChan
+func loadJobs(ctx context.Context, duration time.Duration, rampDownPeriod time.Duration, numJobs int64, jobChan chan<- Request) int64 {
 
+	defer close(jobChan)
 	tickInterval := time.Duration(int64(duration-rampDownPeriod) / numJobs)
-	jobID := int64(0)
+	jobSent := int64(0)
 	for _ = range time.Tick(tickInterval) { //control the pace
 		select {
 		case <-ctx.Done():
-			return //no more requests needed - done signal detected
+			return jobSent //no more requests needed - done signal detected
 		default:
-			job := Request{jobID: jobID}
+			job := Request{jobID: jobSent}
 
 			select {
 			case jobChan <- job:
@@ -115,10 +119,11 @@ func loadJobs(ctx context.Context, duration time.Duration, rampDownPeriod time.D
 					//we will drain the jobChan after timeout, hence this send won't be blocked forever
 				}()
 			}
-			jobID++
-			if jobID == numJobs {
-				return
+			jobSent++
+			if jobSent == numJobs {
+				return jobSent
 			}
 		}
 	}
+	return jobSent
 }

@@ -24,8 +24,8 @@ func Test(t *testing.T) {
 		expectedDoneOK  int64
 		expectedErr     int64
 	}{
+		{"DOP 1", 1, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
 		{"DOP 10", 10, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
-		{"DOP    1", 1, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
 		{"DOP 1024", 1024, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
 	}
 
@@ -43,21 +43,22 @@ func Test(t *testing.T) {
 			aborted := int64(0)
 			doneOk := int64(0)
 			errOut := int64(0)
+			jobSent := int64(0)
 
 			go func() {
 				aborted = processJobs(ctx, tc.DOP, tc.rampDownPeriod, jobChan, resChan, errChan)
 			}()
 			go func() {
-				loadJobs(ctx, tc.totalDuration, tc.rampDownPeriod, tc.numJobs, jobChan)
+				jobSent = loadJobs(ctx, tc.totalDuration, tc.rampDownPeriod, tc.numJobs, jobChan)
 			}()
 
-			go func(resChan <-chan Response) {
+			go func() {
 				for res := range resChan {
 					doneOk++
 					// fmt.Printf("response:%v\n", res.msg)
 					_ = res
 				}
-			}(resChan)
+			}()
 
 			go func() {
 				for err := range errChan {

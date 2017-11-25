@@ -26,8 +26,8 @@ func process(job Request) (Response, error) {
 func main() {
 	// make a channel with a capacity of 100.
 
-	const degree_of_parallel = 1024
-	const max_jobs_in_queue int = degree_of_parallel * 8
+	const degreeOfParallel = 1024
+	const queueSize int = degreeOfParallel * 8
 
 	const numJobs int64 = 50000
 	const TotalDuration = 5 * time.Second
@@ -35,9 +35,9 @@ func main() {
 	//TODO:How to estimate this??
 	const rampDownPeriod = 50 * time.Millisecond
 
-	jobChan := make(chan Request, max_jobs_in_queue)
-	resChan := make(chan Response, max_jobs_in_queue)
-	errChan := make(chan error, max_jobs_in_queue)
+	jobChan := make(chan Request, queueSize)
+	resChan := make(chan Response, queueSize)
+	errChan := make(chan error, queueSize)
 	ctx, cancel := context.WithTimeout(context.Background(), TotalDuration)
 
 	aborted := int64(0)
@@ -45,7 +45,7 @@ func main() {
 	errOut := int64(0)
 
 	go func() {
-		aborted = processJobs(ctx, degree_of_parallel, rampDownPeriod, jobChan, resChan, errChan)
+		aborted = processJobs(ctx, degreeOfParallel, rampDownPeriod, jobChan, resChan, errChan)
 	}()
 	go func() {
 		loadJobs(ctx, TotalDuration, rampDownPeriod, numJobs, jobChan)
