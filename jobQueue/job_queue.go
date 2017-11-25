@@ -2,35 +2,56 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 )
 
-func worker(ctx context.Context, wg *sync.WaitGroup, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
-	defer wg.Done()
+//worker takes two context, one to stop take in any further work, another to discard any processed results
+func worker(ctx context.Context, discardResult <-chan struct{}, wg *sync.WaitGroup, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
+
+	defer func() {
+		if rvr := recover(); rvr != nil {
+			fmt.Fprintf(os.Stderr, "Panic: %+v\n", rvr)
+			debug.PrintStack()
+		}
+		wg.Done()
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-
 		case job, ok := <-jobChan:
 			if !ok {
 				//jobChan closed
 				return
 			}
 			res, err := process(job)
-			if err != nil {
-				errChan <- err
-			} else {
-				resChan <- res
+
+			select {
+
+			case <-discardResult: //controller ask to discardResult as out channels have been closed
+				fmt.Fprintf(os.Stderr, "Result discard: %+v, err: %v\n", res, err)
+				return
+			default:
+				if err != nil {
+					//if errChan closed , deferred recover() will save us
+					errChan <- err
+				} else {
+					//if resChan closed , deferred recover() will save us
+					resChan <- res
+				}
 			}
 
-			//flag is set before a cancel signal is sent out.
-			//when a Cancel signal is send out, neither jobChan nor ctx.Done() will be blocked.
-			//if the flag is set, we drop the rest and get out of here!
-			// if atomic.LoadUint64(&flagQuit) == 1 {
-			// 	return
-			// }
+			select {
+			//check to see if done signal is sent
+			case <-ctx.Done():
+				return
+			default:
+			}
 		}
 	}
 }
@@ -55,18 +76,27 @@ func WaitTimeout(ctx context.Context, graceTime time.Duration, wg *sync.WaitGrou
 
 //doJobs process jobs concurrently
 //close resChan and errChan when return
-func doJobs(ctx context.Context, workerCount int, rampDownPeriod time.Duration, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
+func jobCoordinator(ctx context.Context, workerCount int, rampDownPeriod time.Duration, jobChan <-chan Request, resChan chan<- Response, errChan chan<- error) {
 
 	// use a WaitGroup
 	var wg sync.WaitGroup
 
+	//to signal if all processed results should be discarded
+	discardResult := make(chan struct{})
+
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go worker(ctx, &wg, jobChan, resChan, errChan)
+		go worker(ctx, discardResult, &wg, jobChan, resChan, errChan)
 	}
 
-	//wait at most 1 more second after done signal
+	//WaitTimeout returns when
+	//1) all waitGroup are done, or
+	//2) rampDownPeriod has passed
 	WaitTimeout(ctx, rampDownPeriod, &wg)
+
+	//send signal to ask worker to abandon any processed results as we are closing result channels
+	close(discardResult)
+
 	close(resChan)
 	close(errChan)
 }
@@ -75,7 +105,7 @@ func processJobs(ctx context.Context, workerCount int, rampDownPeriod time.Durat
 	// var flagQuit uint64
 
 	c, cancel := context.WithCancel(context.Background())
-	go doJobs(c, workerCount, rampDownPeriod, jobChan, resChan, errChan)
+	go jobCoordinator(c, workerCount, rampDownPeriod, jobChan, resChan, errChan)
 
 	//wait for done signal
 	<-ctx.Done()

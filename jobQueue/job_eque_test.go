@@ -11,6 +11,9 @@ import (
 )
 
 func Test(t *testing.T) {
+	shortDuration := 2 * time.Second
+	longDuration := 30 * time.Second
+	rampDownPeriod := time.Second
 
 	tt := []struct {
 		name            string
@@ -24,9 +27,17 @@ func Test(t *testing.T) {
 		expectedDoneOK  int64
 		expectedErr     int64
 	}{
-		{"DOP 1", 1, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
-		{"DOP 10", 10, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
-		{"DOP 1024", 1024, 1, 99, 5 * time.Second, 50 * time.Millisecond, 5 * time.Second, 0, 99, 0},
+		{"DOP 1", 1, 1, 99, shortDuration, rampDownPeriod, shortDuration, 0, 99, 0},
+		{"DOP 10", 10, 1, 99, shortDuration, rampDownPeriod, shortDuration, 0, 99, 0},
+		{"DOP 1024", 1024, 1, 99, shortDuration, rampDownPeriod, shortDuration, 0, 99, 0},
+
+		{"DOP 1 - large vol,short duration", 1, 1, 999999, shortDuration, rampDownPeriod, shortDuration, 0, 999999, 0},
+		{"DOP 10 - large vol,short duration", 10, 1, 999999, shortDuration, rampDownPeriod, shortDuration, 0, 999999, 0},
+		{"DOP 1024 - large vol,short duration", 1024, 1, 999999, shortDuration, rampDownPeriod, shortDuration, 0, 999999, 0},
+
+		{"DOP 1 - large vol,long Duration", 1, 1, 999999, longDuration, rampDownPeriod, longDuration, 0, 999999, 0},
+		{"DOP 10 - large vol,long Duration", 10, 1, 999999, longDuration, rampDownPeriod, longDuration, 0, 999999, 0},
+		{"DOP 1024 - large vol,long Duration", 1024, 1, 999999, longDuration, rampDownPeriod, longDuration, 0, 999999, 0},
 	}
 
 	for _, tc := range tt {
@@ -71,7 +82,7 @@ func Test(t *testing.T) {
 			<-ctx.Done()
 			cancel()
 			elapsed := time.Since(startTime)
-			log.Printf("test case %v:Elapsed time %v , done %v,errors %v, aborted %v", tc.name, elapsed, doneOk, errOut, aborted)
+			log.Printf("test case %v:Elapsed time %v , request %v done %v,errors %v, aborted %v", tc.name, elapsed, jobSent, doneOk, errOut, aborted)
 			assert.InEpsilon(t, tc.expectedRunTime, elapsed, 0.01, "runtime ")
 			assert.Equal(t, tc.expectedDoneOK, doneOk)
 			assert.Equal(t, tc.expectedAborted, aborted)
