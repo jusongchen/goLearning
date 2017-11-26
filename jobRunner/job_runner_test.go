@@ -10,6 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//Request describes a job
+type Request struct{ jobID int64 }
+
+//Response describes process result
+type Response struct {
+	msg string
+}
+
+func newReqFunc() func() Request {
+	jobID := int64(0)
+	return func() Request {
+		r := Request{
+			jobID: jobID,
+		}
+		jobID++
+		return r
+	}
+}
+
 func jobHandleFunc(errRate float64, jobTime time.Duration) func(job Request) (Response, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -45,33 +64,27 @@ type testCase struct {
 	expectedErrCnt  int64
 }
 
-var rates = []float64{1, 20, 300, 4000, 5000}
-var bursts = []int{1, 4096}
-var runTimes = []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second}
-var errorRates = []float64{0, 0.1}
-var jobMaxExecTimes = []time.Duration{0, 1 * time.Millisecond, 10 * time.Millisecond, 100 * time.Millisecond, 1 * time.Second}
-
 func TestShort(t *testing.T) {
-	rates = []float64{1, 20}
-	bursts = []int{1, 4096}
-	runTimes = []time.Duration{2 * time.Second}
-	errorRates = []float64{0, 0.1}
-	jobMaxExecTimes = []time.Duration{1 * time.Millisecond, 10 * time.Millisecond}
-	runTests(t)
+	rates := []float64{1, 20}
+	bursts := []int{1, 4096}
+	runTimes := []time.Duration{2 * time.Second}
+	errorRates := []float64{0, 0.2}
+	jobMaxExecTimes := []time.Duration{1 * time.Millisecond, 10 * time.Millisecond}
+	runTests(t, rates, bursts, runTimes, errorRates, jobMaxExecTimes)
 }
 
 func TestLong(t *testing.T) {
 
-	rates = []float64{1, 20, 300, 4000, 5000}
-	bursts = []int{1, 4096}
-	runTimes = []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second}
-	errorRates = []float64{0, 0.1}
-	jobMaxExecTimes = []time.Duration{0, 1 * time.Millisecond, 10 * time.Millisecond, 100 * time.Millisecond, 1 * time.Second}
+	rates := []float64{1, 20, 300, 4000, 10000}
+	bursts := []int{1, 4096}
+	runTimes := []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second}
+	errorRates := []float64{0, 0.3}
+	jobMaxExecTimes := []time.Duration{0, 10 * time.Millisecond, 100 * time.Millisecond, 1 * time.Second}
 
-	runTests(t)
+	runTests(t, rates, bursts, runTimes, errorRates, jobMaxExecTimes)
 }
 
-func runTests(t *testing.T) {
+func runTests(t *testing.T, rates []float64, bursts []int, runTimes []time.Duration, errorRates []float64, jobMaxExecTimes []time.Duration) {
 
 	rampDown := 500 * time.Millisecond
 
