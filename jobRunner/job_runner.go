@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -106,8 +106,87 @@ ForLoop:
 
 }
 
+type stat struct {
+	begin     time.Time
+	end       time.Time
+	okCnt     int64
+	errCnt    int64
+	minDoTime time.Duration
+	maxDoTime time.Duration
+	sumDoTime time.Duration
+}
+
+//Request describes a job
+type Request struct{ jobID int64 }
+
+//Response describes process result
+type Response struct {
+	elapsed time.Duration
+	msg     string
+}
+
+func newReqFunc() func() Request {
+	jobID := int64(0)
+	return func() Request {
+		r := Request{
+			jobID: jobID,
+		}
+		jobID++
+		return r
+	}
+}
+
+func processResult(ctx context.Context, resChan <-chan Response, errChan <-chan error) (s stat, eof bool) {
+
+	s = stat{
+		begin: time.Now(),
+	}
+	defer func() {
+		s.end = time.Now()
+	}()
+
+forLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			break forLoop
+		default:
+			select {
+			case res, ok := <-resChan:
+				if !ok { //resChan closed
+					resChan = nil
+
+				} else {
+					s.okCnt++
+					s.sumDoTime += res.elapsed
+					if res.elapsed > s.maxDoTime {
+						s.maxDoTime = res.elapsed
+					}
+					if res.elapsed < s.minDoTime {
+						s.minDoTime = res.elapsed
+					}
+				}
+
+			case err, ok := <-errChan:
+				if !ok { //errChan closed
+					errChan = nil
+				} else {
+					s.errCnt++
+					_ = err
+				}
+			default:
+				if errChan == nil && resChan == nil {
+					eof = true
+					break forLoop
+				}
+			}
+		}
+	}
+	return s, eof
+}
+
 //See https://en.wikipedia.org/wiki/Token_bucket
-func runner(runPeriod, rampDown time.Duration, rate float64, burst int, handleFunc func(job Request) (Response, error)) (okCnt int64, errCnt int64) {
+func run(runPeriod, rampDown time.Duration, rate float64, burst int, statInterval time.Duration, statChan chan<- stat, handleFunc func(job Request) (Response, error)) {
 
 	resChan := make(chan Response, burst)
 	errChan := make(chan error, burst)
@@ -116,21 +195,17 @@ func runner(runPeriod, rampDown time.Duration, rate float64, burst int, handleFu
 	ctx, cancel := context.WithTimeout(context.Background(), totalDuration)
 	defer cancel()
 
-	okCnt = int64(0)
-
-	go func() {
-		for _ = range resChan {
-			okCnt++
-		}
-	}()
+	defer close(statChan)
 
 	go processJobs(ctx, rate, runPeriod, rampDown, resChan, errChan, handleFunc)
 
-	errCnt = int64(0)
-	for err := range errChan {
-		errCnt++
-		// fmt.Printf("error:%v\r", err)
-		_ = err
+	for {
+		ctxStat, cancelStat := context.WithTimeout(context.Background(), statInterval)
+		s, eof := processResult(ctxStat, resChan, errChan)
+		cancelStat()
+		statChan <- s
+		if eof { //both errChan and resChan closed
+			break
+		}
 	}
-	return okCnt, errCnt
 }
